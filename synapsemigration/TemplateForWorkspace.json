@@ -44,6 +44,32 @@
 								"referenceName": "note_migrate_fabric",
 								"type": "NotebookReference"
 							},
+							"parameters": {
+								" tenantId": {
+									"value": "0eadb77e-42dc-47f8-bbe3-ec2395e0712c",
+									"type": "string"
+								},
+								"clientId": {
+									"value": "a7c183f6-27fd-4c7a-ad9a-53b80754c26a",
+									"type": "string"
+								},
+								"fabricWorkspace": {
+									"value": "51ff8cf4-d80c-4ed4-ac48-9afdf978c965",
+									"type": "string"
+								},
+								"storageAccount": {
+									"value": "synapsemig123",
+									"type": "string"
+								},
+								"container": {
+									"value": "synapsemig124",
+									"type": "string"
+								},
+								"folderPath": {
+									"value": "notebooks/",
+									"type": "string"
+								}
+							},
 							"snapshot": true,
 							"executorSize": "Small",
 							"conf": {
