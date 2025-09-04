@@ -22,6 +22,50 @@
 	},
 	"resources": [
 		{
+			"name": "[concat(parameters('workspaceName'), '/Migration _testing_1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "nb_migrate_to_fabric",
+						"type": "SynapseNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "note_migrate_fabric",
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"executorSize": "Small",
+							"conf": {
+								"spark.dynamicAllocation.enabled": false,
+								"spark.dynamicAllocation.minExecutors": 2,
+								"spark.dynamicAllocation.maxExecutors": 2
+							},
+							"driverSize": "Small",
+							"numExecutors": 2
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/notebooks/note_migrate_fabric')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/Test_Migration_Pipeline')]",
 			"type": "Microsoft.Synapse/workspaces/pipelines",
 			"apiVersion": "2019-06-01-preview",
@@ -43,6 +87,49 @@
 				"annotations": []
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ds_adls_demo')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "synapsemigration-WorkspaceDefaultStorage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "id",
+						"type": "String"
+					},
+					{
+						"name": "name",
+						"type": "String"
+					},
+					{
+						"name": "gender",
+						"type": "String"
+					},
+					{
+						"name": "salary",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/synapsemigration-WorkspaceDefaultStorage')]"
+			]
 		},
 		{
 			"name": "[concat(parameters('workspaceName'), '/synapsemigration-WorkspaceDefaultSqlServer')]",
@@ -113,6 +200,150 @@
 			"properties": {
 				"type": "ManagedIdentity",
 				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/note_migrate_fabric')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "2",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "31fd6edf-48dd-46c0-b03d-bd89b602ee6d"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "python"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"source": [
+							"# Notebook parameters (overridden by pipeline if provided)\n",
+							"\n",
+							"tenantId        = dbutils.widgets.get(\"tenantId\")        if \"dbutils\" in globals() else \"0eadb77e-42dc-47f8-bbe3-ec2395e0712c\"\n",
+							"clientId        = dbutils.widgets.get(\"clientId\")        if \"dbutils\" in globals() else \"a7c183f6-27fd-4c7a-ad9a-53b80754c26a\"\n",
+							"clientSecret    = dbutils.widgets.get(\"clientSecret\")    if \"dbutils\" in globals() else \"2Xh8Q~K0IjXxbwS5RnR0RiHOWn-C3PIvic_gydoH\"\n",
+							"fabricWorkspace = dbutils.widgets.get(\"fabricWorkspace\") if \"dbutils\" in globals() else \"51ff8cf4-d80c-4ed4-ac48-9afdf978c965\"\n",
+							"\n",
+							"storageAccount  = dbutils.widgets.get(\"storageAccount\")  if \"dbutils\" in globals() else \"synapsemig123\"\n",
+							"container       = dbutils.widgets.get(\"container\")       if \"dbutils\" in globals() else \"synapsemig124\"\n",
+							"folderPath      = dbutils.widgets.get(\"folderPath\")      if \"dbutils\" in globals() else \"notebooks/\"\n",
+							"sasToken        = dbutils.widgets.get(\"sasToken\")        if \"dbutils\" in globals() else \"\"  # optional\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"try:\n",
+							"    import requests\n",
+							"except Exception:\n",
+							"    import sys, subprocess\n",
+							"    subprocess.check_call([sys.executable, \"-m\", \"pip\", \"install\", \"requests\"])\n",
+							"    import requests\n",
+							"\n",
+							"import base64, json\n",
+							"from notebookutils import mssparkutils\n",
+							"\n",
+							"FABRIC_API_BASE = \"https://api.fabric.microsoft.com/v1\"\n",
+							"\n",
+							"def get_token(tenant_id, client_id, client_secret):\n",
+							"    url = f\"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token\"\n",
+							"    data = {\n",
+							"        \"client_id\": client_id,\n",
+							"        \"client_secret\": client_secret,\n",
+							"        \"grant_type\": \"client_credentials\",\n",
+							"        \"scope\": \"https://api.fabric.microsoft.com/.default\"\n",
+							"    }\n",
+							"    r = requests.post(url, data=data, timeout=60)\n",
+							"    r.raise_for_status()\n",
+							"    return r.json()[\"access_token\"]\n",
+							"\n",
+							"def list_files_adls(account, container, folder):\n",
+							"    prefix = f\"abfss://{container}@{account}.dfs.core.windows.net/{folder}\"\n",
+							"    items = mssparkutils.fs.ls(prefix)\n",
+							"    return [x.path for x in items if x.name.endswith(\".ipynb\")]\n",
+							"\n",
+							"def read_file_bytes_adls(path):\n",
+							"    with mssparkutils.fs.open(path, \"rb\") as f:\n",
+							"        return f.read()\n",
+							"\n",
+							"def create_fabric_notebook(token, workspace_id, display_name, ipynb_bytes, folder_name=\"Migrated\"):\n",
+							"    b64 = base64.b64encode(ipynb_bytes).decode(\"utf-8\")\n",
+							"    body = {\n",
+							"        \"displayName\": display_name,\n",
+							"        \"type\": \"notebook\",\n",
+							"        \"definition\": {\n",
+							"            \"format\": \"ipynb\",\n",
+							"            \"parts\": [\n",
+							"                {\"path\": f\"{display_name}.ipynb\", \"payloadType\": \"InlineBase64\", \"payload\": b64}\n",
+							"            ]\n",
+							"        }\n",
+							"    }\n",
+							"    if folder_name:\n",
+							"        body[\"folder\"] = {\"name\": folder_name}\n",
+							"\n",
+							"    hdrs = {\"Authorization\": f\"Bearer {token}\", \"Content-Type\": \"application/json\"}\n",
+							"    r = requests.post(f\"{FABRIC_API_BASE}/workspaces/{workspace_id}/items\",\n",
+							"                      headers=hdrs, data=json.dumps(body), timeout=120)\n",
+							"    r.raise_for_status()\n",
+							"    return r.json()[\"id\"]\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"token = get_token(tenantId, clientId, clientSecret)\n",
+							"print(\"✅ Token acquired.\")\n",
+							"\n",
+							"paths = list_files_adls(storageAccount, container, folderPath)\n",
+							"print(\"Found files:\", paths)\n",
+							"\n",
+							"created, errors = [], []\n",
+							"for p in paths:\n",
+							"    name = p.split(\"/\")[-1]\n",
+							"    try:\n",
+							"        raw = read_file_bytes_adls(p)\n",
+							"        nid = create_fabric_notebook(token, fabricWorkspace, name.replace(\".ipynb\",\"\"), raw)\n",
+							"        created.append((name, nid))\n",
+							"        print(f\"OK -> {name} => {nid}\")\n",
+							"    except Exception as ex:\n",
+							"        errors.append((name, str(ex)))\n",
+							"        print(f\"❌ ERROR {name}: {ex}\")\n",
+							"\n",
+							"print(\"\\nSummary:\", \"Created:\", len(created), \"Errors:\", len(errors))\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": null
+					}
+				]
 			},
 			"dependsOn": []
 		}
