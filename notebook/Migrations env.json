@@ -1,0 +1,146 @@
+{
+	"name": "Migrations env",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "spmigratenb1",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "429fd8aa-8d8d-4c92-a29e-9f0df1efdfa7"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/68c3d8dd-4754-4425-9b5a-7b1e80e17f9e/resourceGroups/Migration/providers/Microsoft.Synapse/workspaces/synapsemigration/bigDataPools/spmigratenb1",
+				"name": "spmigratenb1",
+				"type": "Spark",
+				"endpoint": "https://synapsemigration.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/spmigratenb1",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.4",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"# Show every Spark config (handy to scan once)\n",
+					"for k, v in spark.sparkContext.getConf().getAll():\n",
+					"    print(k, \"=\", v)\n",
+					"\n",
+					"# Extract just variables set like spark.executorEnv.MY_VAR\n",
+					"env_vars = {\n",
+					"    k[len(\"spark.executorEnv.\"):]: v\n",
+					"    for k, v in spark.sparkContext.getConf().getAll()\n",
+					"    if k.startswith(\"spark.executorEnv.\")\n",
+					"}\n",
+					"print(\"executorEnv variables:\", env_vars)\n",
+					"mssparkutils.credentials.getSecret(\"kv-migrations-dev\", \"migration-password\")\n",
+					"\n",
+					""
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"import os\n",
+					"for k in sorted(os.environ):\n",
+					"    if k.isupper():   # quick filter (optional)\n",
+					"        print(k, \"=\", os.environ[k])\n",
+					"pwd = get_secret(\"migration-password\")\n",
+					""
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"mssparkutils.credentials.getSecret(\"kv-migrations-dev\", \"migration-password\")\n",
+					""
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from notebookutils import mssparkutils\n",
+					"\n",
+					"pwd = mssparkutils.credentials.getSecret(\"kv_migrations_dev\", \"migration-password\")\n",
+					"print(\"Secret length:\", len(pwd))   # don't print the raw secret\n",
+					""
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%pip install --quiet azure-identity azure-keyvault-secrets\n",
+					""
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"python -m pip install --upgrade pip"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from azure.identity import ManagedIdentityCredential\n",
+					"from azure.keyvault.secrets import SecretClient\n",
+					"\n",
+					"KV_URI = \"https://kv-migrations-dev.vault.azure.net/\"\n",
+					"cred = ManagedIdentityCredential()          # uses Synapse workspace MI\n",
+					"client = SecretClient(vault_url=KV_URI, credential=cred)\n",
+					"\n",
+					"pwd = client.get_secret(\"migration-password\").value\n",
+					"print(\"Secret length:\", len(pwd))\n",
+					""
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from notebookutils import mssparkutils\n",
+					"mssparkutils.library.installPyPI(\"azure-identity\")\n",
+					"mssparkutils.library.installPyPI(\"azure-keyvault-secrets\")\n",
+					"mssparkutils.library.restartPython()\n",
+					""
+				],
+				"execution_count": 21
+			}
+		]
+	}
+}
