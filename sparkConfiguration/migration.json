@@ -1,0 +1,16 @@
+{
+	"name": "migration",
+	"properties": {
+		"configs": {
+			"Testing1": "abcde",
+			"testing 2": "ghhello"
+		},
+		"created": "2025-09-08T11:16:37.1420000-07:00",
+		"createdBy": "bharath.g@quadranttechnologies.com",
+		"annotations": [],
+		"configMergeRule": {
+			"artifact.currentOperation.Testing1": "replace",
+			"artifact.currentOperation.testing 2": "replace"
+		}
+	}
+}
